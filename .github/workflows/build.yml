@@ -4,6 +4,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
     
@@ -16,24 +17,35 @@ jobs:
       uses: android-actions/setup-android@v3
       
     - name: Install Gradle & Build
+      timeout-minutes: 10
       run: |
-        # 1. 下载 Gradle
-        echo "📥 正在下载 Gradle..."
-        wget -q https://services.gradle.org/distributions/gradle-8.0-bin.zip -O gradle.zip
+        echo "🚀 开始编译..."
+        ls -la
+        
+        # 1. 清理旧文件
+        rm -f gradle.zip
+        rm -rf gradle-8.0
+        
+        # 2. 下载 Gradle (阿里云镜像加速)
+        echo "📥 下载 Gradle..."
+        wget --timeout=30 -q https://mirrors.aliyun.com/gradle/gradle-8.0-bin.zip -O gradle.zip
         unzip -q gradle.zip
         export GRADLE_HOME=$PWD/gradle-8.0
         export PATH=$GRADLE_HOME/bin:$PATH
         
-        # 2. 生成 Wrapper (解决缺少 gradlew 的问题)
-        echo "🔧 正在生成 Gradle Wrapper..."
-        gradle wrapper --gradle-version 8.0
+        # 3. 生成 Wrapper
+        echo "🔧 生成 Gradle Wrapper..."
+        gradle wrapper --gradle-version 8.0 --distribution-type all
         
-        # 3. 编译 APK
-        echo "🏗️ 正在编译 APK..."
+        # 4. 授予权限并编译
+        echo "🏗️ 编译 APK..."
         chmod +x gradlew
-        ./gradlew assembleDebug --no-daemon
+        ./gradlew assembleDebug --no-daemon --max-workers 2
         
-    - uses: actions/upload-artifact@v4
+    - name: Upload APK
+      if: always()
+      uses: actions/upload-artifact@v4
       with:
         name: app-debug.apk
-        path: app/build/outputs/apk/debug/*.apk
+        path: "**/debug/*.apk"
+
